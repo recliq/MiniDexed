@@ -83,7 +83,11 @@ private:
 	static void EditVoiceParameter (CUIMenu *pUIMenu, TMenuEvent Event);
 	static void EditOPParameter (CUIMenu *pUIMenu, TMenuEvent Event);
 	static void SavePerformance (CUIMenu *pUIMenu, TMenuEvent Event);
-
+	static void EditTGParameter2 (CUIMenu *pUIMenu, TMenuEvent Event);
+	
+	static void PerformanceMenu (CUIMenu *pUIMenu, TMenuEvent Event);
+	static void SavePerformanceNewFile (CUIMenu *pUIMenu, TMenuEvent Event);
+	
 	static std::string GetGlobalValueString (unsigned nParameter, int nValue);
 	static std::string GetTGValueString (unsigned nTGParameter, int nValue);
 	static std::string GetVoiceValueString (unsigned nVoiceParameter, int nValue);
@@ -101,6 +105,8 @@ private:
 	static std::string ToKeyboardCurve (int nValue);
 	static std::string ToOscillatorMode (int nValue);
 	static std::string ToOscillatorDetune (int nValue);
+	static std::string ToPortaMode (int nValue);  
+	static std::string ToPortaGlissando (int nValue);   
 
 	void TGShortcutHandler (TMenuEvent Event);
 	void OPShortcutHandler (TMenuEvent Event);
@@ -132,7 +138,9 @@ private:
 	static const TMenuItem s_EditVoiceMenu[];
 	static const TMenuItem s_OperatorMenu[];
 	static const TMenuItem s_SaveMenu[];
-
+	static const TMenuItem s_EditPitchBendMenu[];
+	static const TMenuItem s_EditPortamentoMenu[];
+		
 	static const TParameter s_GlobalParameter[];
 	static const TParameter s_TGParameter[];
 	static const TParameter s_VoiceParameter[];
