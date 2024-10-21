@@ -31,6 +31,8 @@
 #include <circle/types.h>
 #include <queue>
 
+#define USB_SYSEX_BUFFER_SIZE (MAX_DX7_SYSEX_LENGTH+128) // Allow a bit spare to handle unexpected SysEx messages
+
 class CMiniDexed;
 
 class CMIDIKeyboard : public CMIDIDevice
@@ -39,7 +41,7 @@ public:
 	static const unsigned MaxInstances = 4;
 
 public:
-	CMIDIKeyboard (CMiniDexed *pSynthesizer, CConfig *pConfig, unsigned nInstance = 0);
+	CMIDIKeyboard (CMiniDexed *pSynthesizer, CConfig *pConfig, CUserInterface *pUI, unsigned nInstance = 0);
 	~CMIDIKeyboard (void);
 
 	void Process (boolean bPlugAndPlayUpdated);
@@ -53,6 +55,8 @@ private:
 	static void MIDIPacketHandler3 (unsigned nCable, u8 *pPacket, unsigned nLength);
 
 	static void DeviceRemovedHandler (CDevice *pDevice, void *pContext);
+	
+	void USBMIDIMessageHandler (u8 *pPacket, unsigned nLength, unsigned nCable);
 
 private:
 	struct TSendQueueEntry
@@ -61,6 +65,8 @@ private:
 		size_t	 nLength;
 		unsigned nCable;
 	};
+	uint8_t m_SysEx[USB_SYSEX_BUFFER_SIZE];
+	unsigned m_nSysExIdx;
 
 private:
 	unsigned m_nInstance;
@@ -73,6 +79,7 @@ private:
 	static CMIDIKeyboard *s_pThis[MaxInstances];
 
 	static TMIDIPacketHandler * const s_pMIDIPacketHandler[MaxInstances];
+
 };
 
 #endif

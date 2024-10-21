@@ -31,6 +31,7 @@
 #include <assert.h>
 
 using namespace std;
+LOGMODULE ("uimenu");
 
 const CUIMenu::TMenuItem CUIMenu::s_MenuRoot[] =
 {
@@ -50,10 +51,19 @@ const CUIMenu::TMenuItem CUIMenu::s_MainMenu[] =
 	{"TG6",		MenuHandler,	s_TGMenu, 5},
 	{"TG7",		MenuHandler,	s_TGMenu, 6},
 	{"TG8",		MenuHandler,	s_TGMenu, 7},
+#if (RASPPI==4 || RASPPI==5)
+	{"TG9",		MenuHandler,	s_TGMenu, 8},
+	{"TG10",	MenuHandler,	s_TGMenu, 9},
+	{"TG11",	MenuHandler,	s_TGMenu, 10},
+	{"TG12",	MenuHandler,	s_TGMenu, 11},
+	{"TG13",	MenuHandler,	s_TGMenu, 12},
+	{"TG14",	MenuHandler,	s_TGMenu, 13},
+	{"TG15",	MenuHandler,	s_TGMenu, 14},
+	{"TG16",	MenuHandler,	s_TGMenu, 15},
+#endif
 #endif
 	{"Effects",	MenuHandler,	s_EffectsMenu},
-	{"Performance",	PerformanceMenu}, 
-	{"Save",	MenuHandler,	s_SaveMenu},
+	{"Performance",	MenuHandler, s_PerformanceMenu}, 
 	{0}
 };
 
@@ -71,6 +81,8 @@ const CUIMenu::TMenuItem CUIMenu::s_TGMenu[] =
 	{"Resonance",	EditTGParameter,	0,	CMiniDexed::TGParameterResonance},
 	{"Pitch Bend",	MenuHandler,		s_EditPitchBendMenu},
 	{"Portamento",		MenuHandler,		s_EditPortamentoMenu},
+	{"Poly/Mono",		EditTGParameter,	0,	CMiniDexed::TGParameterMonoMode}, 
+	{"Modulation",		MenuHandler,		s_ModulationMenu},
 	{"Channel",	EditTGParameter,	0,	CMiniDexed::TGParameterMIDIChannel},
 	{"Edit Voice",	MenuHandler,		s_EditVoiceMenu},
 	{0}
@@ -97,6 +109,24 @@ const CUIMenu::TMenuItem CUIMenu::s_EditPortamentoMenu[] =
 	{"Mode",		EditTGParameter2,	0,	CMiniDexed::TGParameterPortamentoMode},
 	{"Glissando",		EditTGParameter2,	0,	CMiniDexed::TGParameterPortamentoGlissando},
 	{"Time",		EditTGParameter2,	0,	CMiniDexed::TGParameterPortamentoTime},
+	{0}
+};
+
+const CUIMenu::TMenuItem CUIMenu::s_ModulationMenu[] =
+{
+	{"Mod. Wheel",		MenuHandler,	s_ModulationMenuParameters,	CMiniDexed::TGParameterMWRange},
+	{"Foot Control",	MenuHandler,	s_ModulationMenuParameters,	CMiniDexed::TGParameterFCRange},
+	{"Breath Control",	MenuHandler,	s_ModulationMenuParameters,	CMiniDexed::TGParameterBCRange},
+	{"Aftertouch",	MenuHandler,	s_ModulationMenuParameters,	CMiniDexed::TGParameterATRange},
+	{0}
+};
+
+const CUIMenu::TMenuItem CUIMenu::s_ModulationMenuParameters[] =
+{
+	{"Range",		EditTGParameterModulation,	0, 0},
+	{"Pitch",		EditTGParameterModulation,	0, 1},
+	{"Amplitude",	EditTGParameterModulation,	0, 2},
+	{"EG Bias",		EditTGParameterModulation,	0, 3},
 	{0}
 };
 
@@ -144,6 +174,7 @@ const CUIMenu::TMenuItem CUIMenu::s_EditVoiceMenu[] =
 	{"LFO Wave",	EditVoiceParameter,	0,		DEXED_LFO_WAVE},
 	{"P Mod Sens.",	EditVoiceParameter,	0,		DEXED_LFO_PITCH_MOD_SENS},
 	{"Transpose",	EditVoiceParameter,	0,		DEXED_TRANSPOSE},
+	{"Name",	InputTxt,0 , 3}, 
 	{0}
 };
 
@@ -176,8 +207,9 @@ const CUIMenu::TMenuItem CUIMenu::s_OperatorMenu[] =
 
 const CUIMenu::TMenuItem CUIMenu::s_SaveMenu[] =
 {
-	{"Overwrite",	SavePerformance}, 
-	{"New",	SavePerformanceNewFile},
+	{"Overwrite",	SavePerformance, 0, 0}, 
+	{"New",	InputTxt,0 , 1}, 
+	{"Save as default",	SavePerformance, 0, 1}, 
 	{0}
 };
 
@@ -191,13 +223,17 @@ const CUIMenu::TParameter CUIMenu::s_GlobalParameter[CMiniDexed::ParameterUnknow
 	{0,	99,	1},				// ParameterReverbLowDamp
 	{0,	99,	1},				// ParameterReverbLowPass
 	{0,	99,	1},				// ParameterReverbDiffusion
-	{0,	99,	1}				// ParameterReverbLevel
+	{0,	99,	1},				// ParameterReverbLevel
+	{0,	CMIDIDevice::ChannelUnknown-1,		1, ToMIDIChannel}, 	// ParameterPerformanceSelectChannel
+	{0, NUM_PERFORMANCE_BANKS, 1}	// ParameterPerformanceBank
 };
 
 // must match CMiniDexed::TTGParameter
 const CUIMenu::TParameter CUIMenu::s_TGParameter[CMiniDexed::TGParameterUnknown] =
 {
 	{0,	CSysExFileLoader::MaxVoiceBankID,	1},			// TGParameterVoiceBank
+	{0, 0, 0},											// TGParameterVoiceBankMSB (not used in menus)
+	{0, 0, 0},											// TGParameterVoiceBankLSB (not used in menus)
 	{0,	CSysExFileLoader::VoicesPerBank-1,	1},			// TGParameterProgram
 	{0,	127,					8, ToVolume},		// TGParameterVolume
 	{0,	127,					8, ToPan},		// TGParameterPan
@@ -208,9 +244,26 @@ const CUIMenu::TParameter CUIMenu::s_TGParameter[CMiniDexed::TGParameterUnknown]
 	{0, 99, 1},								// TGParameterReverbSend
 	{0,	12,					1},			// TGParameterPitchBendRange
 	{0,	12,					1},			// TGParameterPitchBendStep
-	{0,	1,					1, ToPortaMode},			// TGParameterPortamentoMode
-	{0,	1,					1, ToPortaGlissando},			// TGParameterPortamentoGlissando
-	{0,	99,					1}			// TGParameterPortamentoTime
+	{0,	1,					1, ToPortaMode},	// TGParameterPortamentoMode
+	{0,	1,					1, ToPortaGlissando},	// TGParameterPortamentoGlissando
+	{0,	99,					1},			// TGParameterPortamentoTime
+	{0,	1,					1, ToPolyMono}, 		// TGParameterMonoMode 
+	{0, 99, 1}, //MW Range
+	{0, 1, 1, ToOnOff}, //MW Pitch
+	{0, 1, 1, ToOnOff}, //MW Amp
+	{0, 1, 1, ToOnOff}, //MW EGBias
+	{0, 99, 1}, //FC Range
+	{0, 1, 1, ToOnOff}, //FC Pitch
+	{0, 1, 1, ToOnOff}, //FC Amp
+	{0, 1, 1, ToOnOff}, //FC EGBias
+	{0, 99, 1}, //BC Range
+	{0, 1, 1, ToOnOff}, //BC Pitch
+	{0, 1, 1, ToOnOff}, //BC Amp
+	{0, 1, 1, ToOnOff}, //BC EGBias
+	{0, 99, 1}, //AT Range
+	{0, 1, 1, ToOnOff}, //AT Pitch
+	{0, 1, 1, ToOnOff}, //AT Amp
+	{0, 1, 1, ToOnOff} //AT EGBias	
 };
 
 // must match DexedVoiceParameters in Synth_Dexed
@@ -234,7 +287,8 @@ const CUIMenu::TParameter CUIMenu::s_VoiceParameter[] =
 	{0,	1,	1,	ToOnOff},		// DEXED_LFO_SYNC
 	{0,	5,	1,	ToLFOWaveform},		// DEXED_LFO_WAVE
 	{0,	7,	1},				// DEXED_LFO_PITCH_MOD_SENS
-	{0,	48,	1,	ToTransposeNote}	// DEXED_TRANSPOSE
+	{0,	48,	1,	ToTransposeNote},	// DEXED_TRANSPOSE
+	{0,	1,	1}				// Voice Name - Dummy parameters for in case new item would be added in future 
 };
 
 // must match DexedVoiceOPParameters in Synth_Dexed
@@ -264,23 +318,36 @@ const CUIMenu::TParameter CUIMenu::s_OPParameter[] =
 	{0, 1, 1, ToOnOff}		// DEXED_OP_ENABLE
 };
 
-const char CUIMenu::s_NoteName[100][4] =
+const char CUIMenu::s_NoteName[100][5] =
 {
-	"A1", "A#1", "B1", "C1", "C#1", "D1", "D#1", "E1", "F1", "F#1",	"G1", "G#1",
-	"A2", "A#2", "B2", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2",
-	"A3", "A#3", "B3", "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3",
-	"A4", "A#4", "B4", "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4",
-	"A5", "A#5", "B5", "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5",
-	"A6", "A#6", "B6", "C6", "C#6", "D6", "D#6", "E6", "F6", "F#6", "G6", "G#6",
-	"A7", "A#7", "B7", "C7", "C#7", "D7", "D#7", "E7", "F7", "F#7", "G7", "G#7",
-	"A8", "A#8", "B8", "C8", "C#8", "D8", "D#8", "E8", "F8", "F#8", "G8", "G#8",
-	"A9", "A#9", "B9", "C9"
+"A-1", "A#-1", "B-1", "C0", "C#0", "D0", "D#0", "E0", "F0", "F#0", "G0", "G#0",
+"A0", "A#0", "B0", "C1", "C#1", "D1", "D#1", "E1", "F1", "F#1", "G1", "G#1",
+"A1", "A#1", "B1", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2",
+"A2", "A#2", "B2", "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3",
+"A3", "A#3", "B3", "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4",
+"A4", "A#4", "B4", "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5",
+"A5", "A#5", "B5", "C6", "C#6", "D6", "D#6", "E6", "F6", "F#6", "G6", "G#6",
+"A6", "A#6", "B6", "C7", "C#7", "D7", "D#7", "E7", "F7", "F#7", "G7", "G#7",
+"A7", "A#7", "B7", "C8"
 };
-static const unsigned NoteC3 = 27;
 
-CUIMenu::CUIMenu (CUserInterface *pUI, CMiniDexed *pMiniDexed)
+static const unsigned NoteC3 = 39;
+
+const CUIMenu::TMenuItem CUIMenu::s_PerformanceMenu[] =
+{
+	{"Load",	PerformanceMenu, 0, 0}, 
+	{"Save",	MenuHandler,	s_SaveMenu},
+	{"Delete",	PerformanceMenu, 0, 1},
+	{"Bank",	EditPerformanceBankNumber, 0, 0},
+	{"PCCH",	EditGlobalParameter,	0,	CMiniDexed::ParameterPerformanceSelectChannel},
+	{0}
+};
+
+
+CUIMenu::CUIMenu (CUserInterface *pUI, CMiniDexed *pMiniDexed, CConfig *pConfig)
 :	m_pUI (pUI),
 	m_pMiniDexed (pMiniDexed),
+	m_pConfig (pConfig),
 	m_pParentMenu (s_MenuRoot),
 	m_pCurrentMenu (s_MainMenu),
 	m_nCurrentMenuItem (0),
@@ -288,6 +355,27 @@ CUIMenu::CUIMenu (CUserInterface *pUI, CMiniDexed *pMiniDexed)
 	m_nCurrentParameter (0),
 	m_nCurrentMenuDepth (0)
 {
+	assert (m_pConfig);
+	m_nToneGenerators = m_pConfig->GetToneGenerators();
+
+	if (m_nToneGenerators == 1)
+	{
+		// If there is just one core, then there is only a single
+		// tone generator so start on the TG1 menu...
+		m_pParentMenu = s_MainMenu;
+		m_pCurrentMenu = s_TGMenu;
+		m_nCurrentMenuItem = 0;
+		m_nCurrentSelection = 0;
+		m_nCurrentParameter = 0;
+		m_nCurrentMenuDepth = 1;
+
+		// Place the "root" menu at the top of the stack
+		m_MenuStackParent[0] = s_MenuRoot;
+		m_MenuStackMenu[0] = s_MainMenu;
+		m_nMenuStackItem[0]	= 0;
+		m_nMenuStackSelection[0] = 0;
+		m_nMenuStackParameter[0] = 0;
+	}
 }
 
 void CUIMenu::EventHandler (TMenuEvent Event)
@@ -310,14 +398,42 @@ void CUIMenu::EventHandler (TMenuEvent Event)
 		break;
 
 	case MenuEventHome:
-		m_pParentMenu = s_MenuRoot;
-		m_pCurrentMenu = s_MainMenu;
-		m_nCurrentMenuItem = 0;
-		m_nCurrentSelection = 0;
-		m_nCurrentParameter = 0;
-		m_nCurrentMenuDepth = 0;
-
+		if (m_nToneGenerators == 1)
+		{
+			// "Home" is the TG0 menu if only one TG active
+			m_pParentMenu = s_MainMenu;
+			m_pCurrentMenu = s_TGMenu;
+			m_nCurrentMenuItem = 0;
+			m_nCurrentSelection = 0;
+			m_nCurrentParameter = 0;
+			m_nCurrentMenuDepth = 1;
+			// Place the "root" menu at the top of the stack
+			m_MenuStackParent[0] = s_MenuRoot;
+			m_MenuStackMenu[0] = s_MainMenu;
+			m_nMenuStackItem[0] = 0;
+			m_nMenuStackSelection[0] = 0;
+			m_nMenuStackParameter[0] = 0;
+		}
+		else
+		{
+			m_pParentMenu = s_MenuRoot;
+			m_pCurrentMenu = s_MainMenu;
+			m_nCurrentMenuItem = 0;
+			m_nCurrentSelection = 0;
+			m_nCurrentParameter = 0;
+			m_nCurrentMenuDepth = 0;
+		}
 		EventHandler (MenuEventUpdate);
+		break;
+
+	case MenuEventPgmUp:
+	case MenuEventPgmDown:
+		PgmUpDownHandler(Event);
+		break;
+
+	case MenuEventTGUp:
+	case MenuEventTGDown:
+		TGUpDownHandler(Event);
 		break;
 
 	default:
@@ -355,7 +471,30 @@ void CUIMenu::MenuHandler (CUIMenu *pUIMenu, TMenuEvent Event)
 		break;
 
 	case MenuEventStepDown:
-		if (pUIMenu->m_nCurrentSelection > 0)
+		if (pUIMenu->m_nCurrentSelection == 0)
+		{
+			// If in main mennu, wrap around
+			if (pUIMenu->m_pCurrentMenu == s_MainMenu)
+			{
+				// Find last entry with a name
+				while (pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection+1].Name)
+				{
+					pUIMenu->m_nCurrentSelection++;
+				}
+			}
+		}
+		else if (pUIMenu->m_nCurrentSelection > 0)
+		{
+			pUIMenu->m_nCurrentSelection--;
+		}
+		// Might need to trim menu if number of TGs is configured to be less than the maximum supported
+		while ((pUIMenu->m_pCurrentMenu == s_MainMenu) && (pUIMenu->m_nCurrentSelection > 0) &&
+			  	(	// Skip any unused menus
+			   		(pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection].MenuItem == s_TGMenu) &&
+			   		(pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection].Parameter >= pUIMenu->m_nToneGenerators) &&
+			   		(pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection].Parameter < CConfig::AllToneGenerators)
+				)
+			  )
 		{
 			pUIMenu->m_nCurrentSelection--;
 		}
@@ -365,7 +504,27 @@ void CUIMenu::MenuHandler (CUIMenu *pUIMenu, TMenuEvent Event)
 		++pUIMenu->m_nCurrentSelection;
 		if (!pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection].Name)  // more entries?
 		{
-			pUIMenu->m_nCurrentSelection--;
+			if (pUIMenu->m_pCurrentMenu == s_MainMenu)
+			{
+				// If in main mennu, wrap around
+				pUIMenu->m_nCurrentSelection = 0;
+			}
+			else
+			{
+				// Return to last known good item
+				pUIMenu->m_nCurrentSelection--;
+			}
+		}
+		// Might need to trim menu if number of TGs is configured to be less than the maximum supported
+		while ((pUIMenu->m_pCurrentMenu == s_MainMenu) && (pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection+1].Name) &&
+			   	(	// Skip any unused TG menus
+					(pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection].MenuItem == s_TGMenu) &&
+					(pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection].Parameter >= pUIMenu->m_nToneGenerators) &&
+					(pUIMenu->m_pCurrentMenu[pUIMenu->m_nCurrentSelection].Parameter < CConfig::AllToneGenerators)
+				)
+			  )
+		{
+			pUIMenu->m_nCurrentSelection++;
 		}
 		break;
 
@@ -446,19 +605,13 @@ void CUIMenu::EditVoiceBankNumber (CUIMenu *pUIMenu, TMenuEvent Event)
 		break;
 
 	case MenuEventStepDown:
-		if (--nValue < 0)
-		{
-			nValue = 0;
-		}
+		nValue = pUIMenu->m_pMiniDexed->GetSysExFileLoader ()->GetNextBankDown(nValue);
 		pUIMenu->m_pMiniDexed->SetTGParameter (
 			CMiniDexed::TGParameterVoiceBank, nValue, nTG);
 		break;
 
 	case MenuEventStepUp:
-		if (++nValue > (int) CSysExFileLoader::MaxVoiceBankID)
-		{
-			nValue = CSysExFileLoader::MaxVoiceBankID;
-		}
+		nValue = pUIMenu->m_pMiniDexed->GetSysExFileLoader ()->GetNextBankUp(nValue);
 		pUIMenu->m_pMiniDexed->SetTGParameter (
 			CMiniDexed::TGParameterVoiceBank, nValue, nTG);
 		break;
@@ -498,7 +651,11 @@ void CUIMenu::EditProgramNumber (CUIMenu *pUIMenu, TMenuEvent Event)
 	case MenuEventStepDown:
 		if (--nValue < 0)
 		{
-			nValue = 0;
+			// Switch down a voice bank and set to the last voice
+			nValue = CSysExFileLoader::VoicesPerBank-1;
+			int nVB = pUIMenu->m_pMiniDexed->GetTGParameter(CMiniDexed::TGParameterVoiceBank, nTG);
+			nVB = pUIMenu->m_pMiniDexed->GetSysExFileLoader ()->GetNextBankDown(nVB);
+			pUIMenu->m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterVoiceBank, nVB, nTG);
 		}
 		pUIMenu->m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterProgram, nValue, nTG);
 		break;
@@ -506,7 +663,11 @@ void CUIMenu::EditProgramNumber (CUIMenu *pUIMenu, TMenuEvent Event)
 	case MenuEventStepUp:
 		if (++nValue > (int) CSysExFileLoader::VoicesPerBank-1)
 		{
-			nValue = CSysExFileLoader::VoicesPerBank-1;
+			// Switch up a voice bank and reset to voice 0
+			nValue = 0;
+			int nVB = pUIMenu->m_pMiniDexed->GetTGParameter(CMiniDexed::TGParameterVoiceBank, nTG);
+			nVB = pUIMenu->m_pMiniDexed->GetSysExFileLoader ()->GetNextBankUp(nVB);
+			pUIMenu->m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterVoiceBank, nVB, nTG);
 		}
 		pUIMenu->m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterProgram, nValue, nTG);
 		break;
@@ -520,15 +681,31 @@ void CUIMenu::EditProgramNumber (CUIMenu *pUIMenu, TMenuEvent Event)
 		return;
 	}
 
-	string TG ("TG");
-	TG += to_string (nTG+1);
+	// Skip empty voices.
+	// Use same criteria in PgmUpDownHandler() too.
+	string voiceName = pUIMenu->m_pMiniDexed->GetVoiceName (nTG);
+	if (voiceName == "EMPTY     "
+	    || voiceName == "          "
+	    || voiceName == "----------"
+	    || voiceName == "~~~~~~~~~~" )
+	{
+		if (Event == MenuEventStepUp) {
+			CUIMenu::EditProgramNumber (pUIMenu, MenuEventStepUp);
+		}
+		if (Event == MenuEventStepDown) {
+			CUIMenu::EditProgramNumber (pUIMenu, MenuEventStepDown);
+		}
+	} else {
+		string TG ("TG");
+		TG += to_string (nTG+1);
 
-	string Value = to_string (nValue+1) + "=" + pUIMenu->m_pMiniDexed->GetVoiceName (nTG);
+		string Value = to_string (nValue+1) + "=" + pUIMenu->m_pMiniDexed->GetVoiceName (nTG);
 
-	pUIMenu->m_pUI->DisplayWrite (TG.c_str (),
-				      pUIMenu->m_pParentMenu[pUIMenu->m_nCurrentMenuItem].Name,
-				      Value.c_str (),
-				      nValue > 0, nValue < (int) CSysExFileLoader::VoicesPerBank-1);
+		pUIMenu->m_pUI->DisplayWrite (TG.c_str (),
+					      pUIMenu->m_pParentMenu[pUIMenu->m_nCurrentMenuItem].Name,
+					      Value.c_str (),
+					      nValue > 0, nValue < (int) CSysExFileLoader::VoicesPerBank-1);
+	}
 }
 
 void CUIMenu::EditTGParameter (CUIMenu *pUIMenu, TMenuEvent Event)
@@ -799,7 +976,7 @@ void CUIMenu::SavePerformance (CUIMenu *pUIMenu, TMenuEvent Event)
 		return;
 	}
 
-	bool bOK = pUIMenu->m_pMiniDexed->SavePerformance ();
+	bool bOK = pUIMenu->m_pMiniDexed->SavePerformance (pUIMenu->m_nCurrentParameter == 1);
 
 	const char *pMenuName =
 		pUIMenu->m_MenuStackParent[pUIMenu->m_nCurrentMenuDepth-1]
@@ -1020,12 +1197,22 @@ string CUIMenu::ToPortaGlissando (int nValue)
 	}
 };
 
+string CUIMenu::ToPolyMono (int nValue)
+{
+	switch (nValue)
+	{
+	case 0:		return "Poly";
+	case 1:		return "Mono";
+	default:	return to_string (nValue);
+	}
+}
+
 void CUIMenu::TGShortcutHandler (TMenuEvent Event)
 {
 	assert (m_nCurrentMenuDepth >= 2);
 	assert (m_MenuStackMenu[0] = s_MainMenu);
 	unsigned nTG = m_nMenuStackSelection[0];
-	assert (nTG < CConfig::ToneGenerators);
+	assert (nTG < CConfig::AllToneGenerators);
 	assert (m_nMenuStackItem[1] == nTG);
 	assert (m_nMenuStackParameter[1] == nTG);
 
@@ -1040,7 +1227,7 @@ void CUIMenu::TGShortcutHandler (TMenuEvent Event)
 		nTG++;
 	}
 
-	if (nTG < CConfig::ToneGenerators)
+	if (nTG < m_nToneGenerators)
 	{
 		m_nMenuStackSelection[0] = nTG;
 		m_nMenuStackItem[1] = nTG;
@@ -1080,6 +1267,168 @@ void CUIMenu::OPShortcutHandler (TMenuEvent Event)
 	}
 }
 
+void CUIMenu::PgmUpDownHandler (TMenuEvent Event)
+{
+	if (m_pMiniDexed->GetParameter (CMiniDexed::ParameterPerformanceSelectChannel) != CMIDIDevice::Disabled)
+	{
+		// Program Up/Down acts on performances
+		unsigned nLastPerformance = m_pMiniDexed->GetLastPerformance();
+		unsigned nPerformance = m_pMiniDexed->GetActualPerformanceID();
+		unsigned nStart = nPerformance;
+		//LOGNOTE("Performance actual=%d, last=%d", nPerformance, nLastPerformance);
+		if (Event == MenuEventPgmDown)
+		{
+			do
+			{
+				if (nPerformance == 0)
+				{
+					// Wrap around
+					nPerformance = nLastPerformance;
+				}
+				else if (nPerformance > 0)
+				{
+					--nPerformance;
+				}
+			} while ((m_pMiniDexed->IsValidPerformance(nPerformance) != true) && (nPerformance != nStart));
+			m_nSelectedPerformanceID = nPerformance;
+			m_pMiniDexed->SetNewPerformance(m_nSelectedPerformanceID);
+			//LOGNOTE("Performance new=%d, last=%d", m_nSelectedPerformanceID, nLastPerformance);
+		}
+		else // MenuEventPgmUp
+		{
+			do
+			{
+				if (nPerformance == nLastPerformance)
+				{
+					// Wrap around
+					nPerformance = 0;
+				}
+				else if (nPerformance < nLastPerformance)
+				{
+					++nPerformance;
+				}
+			} while ((m_pMiniDexed->IsValidPerformance(nPerformance) != true) && (nPerformance != nStart));
+			m_nSelectedPerformanceID = nPerformance;
+			m_pMiniDexed->SetNewPerformance(m_nSelectedPerformanceID);
+			//LOGNOTE("Performance new=%d, last=%d", m_nSelectedPerformanceID, nLastPerformance);
+		}
+	}
+	else
+	{
+		// Program Up/Down acts on voices within a TG.
+	
+		// If we're not in the root menu, then see if we are already in a TG menu,
+		// then find the current TG number. Otherwise assume TG1 (nTG=0).
+		unsigned nTG = 0;
+		if (m_MenuStackMenu[0] == s_MainMenu && (m_pCurrentMenu == s_TGMenu) || (m_MenuStackMenu[1] == s_TGMenu)) {
+			nTG = m_nMenuStackSelection[0];
+		}
+		assert (nTG < CConfig::AllToneGenerators);
+		if (nTG < m_nToneGenerators)
+		{
+			int nPgm = m_pMiniDexed->GetTGParameter (CMiniDexed::TGParameterProgram, nTG);
+
+			assert (Event == MenuEventPgmDown || Event == MenuEventPgmUp);
+			if (Event == MenuEventPgmDown)
+			{
+				//LOGNOTE("PgmDown");
+				if (--nPgm < 0)
+				{
+					// Switch down a voice bank and set to the last voice
+					nPgm = CSysExFileLoader::VoicesPerBank-1;
+					int nVB = m_pMiniDexed->GetTGParameter(CMiniDexed::TGParameterVoiceBank, nTG);
+					nVB = m_pMiniDexed->GetSysExFileLoader ()->GetNextBankDown(nVB);
+					m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterVoiceBank, nVB, nTG);
+				}
+				m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterProgram, nPgm, nTG);
+			}
+			else
+			{
+				//LOGNOTE("PgmUp");
+				if (++nPgm > (int) CSysExFileLoader::VoicesPerBank-1)
+				{
+					// Switch up a voice bank and reset to voice 0
+					nPgm = 0;
+					int nVB = m_pMiniDexed->GetTGParameter(CMiniDexed::TGParameterVoiceBank, nTG);
+					nVB = m_pMiniDexed->GetSysExFileLoader ()->GetNextBankUp(nVB);
+					m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterVoiceBank, nVB, nTG);
+				}
+				m_pMiniDexed->SetTGParameter (CMiniDexed::TGParameterProgram, nPgm, nTG);
+			}
+
+			// Skip empty voices.
+			// Use same criteria in EditProgramNumber () too.
+			string voiceName = m_pMiniDexed->GetVoiceName (nTG);
+			if (voiceName == "EMPTY     "
+				|| voiceName == "          "
+				|| voiceName == "----------"
+				|| voiceName == "~~~~~~~~~~" )
+			{
+				if (Event == MenuEventPgmUp) {
+					PgmUpDownHandler (MenuEventPgmUp);
+				}
+				if (Event == MenuEventPgmDown) {
+					PgmUpDownHandler (MenuEventPgmDown);
+				}
+			}
+		}
+	}
+}
+
+void CUIMenu::TGUpDownHandler (TMenuEvent Event)
+{
+	// This will update the menus to position it for the next TG up or down
+	unsigned nTG = 0;
+	
+	if (m_nToneGenerators <= 1) {
+		// Nothing to do if only a single TG
+		return;
+	}
+
+	// If we're not in the root menu, then see if we are already in a TG menu,
+	// then find the current TG number. Otherwise assume TG1 (nTG=0).
+	if (m_MenuStackMenu[0] == s_MainMenu && (m_pCurrentMenu == s_TGMenu) || (m_MenuStackMenu[1] == s_TGMenu)) {
+		nTG = m_nMenuStackSelection[0];
+	}
+
+	assert (nTG < CConfig::AllToneGenerators);
+	assert (Event == MenuEventTGDown || Event == MenuEventTGUp);
+	if (Event == MenuEventTGDown)
+	{
+		//LOGNOTE("TGDown");
+		if (nTG > 0) {
+			nTG--;
+		}
+	}
+	else
+	{
+		//LOGNOTE("TGUp");
+		if (nTG < m_nToneGenerators - 1) {
+			nTG++;
+		}
+	}
+
+	// Set menu to the appropriate TG menu as follows:
+	//  Top = Root
+	//  Menu [0] = Main
+	//  Menu [1] = TG Menu
+	m_pParentMenu = s_MainMenu;
+	m_pCurrentMenu = s_TGMenu;
+	m_nCurrentMenuItem = nTG;
+	m_nCurrentSelection = 0;
+	m_nCurrentParameter = nTG;
+	m_nCurrentMenuDepth = 1;
+
+	// Place the main menu on the stack with Root as the parent
+	m_MenuStackParent[0] = s_MenuRoot;
+	m_MenuStackMenu[0] = s_MainMenu;
+	m_nMenuStackItem[0] = 0;
+	m_nMenuStackSelection[0] = nTG;
+	m_nMenuStackParameter[0] = 0;
+
+	EventHandler (MenuEventUpdate);
+}
+
 void CUIMenu::TimerHandler (TKernelTimerHandle hTimer, void *pParam, void *pContext)
 {
 	CUIMenu *pThis = static_cast<CUIMenu *> (pContext);
@@ -1088,37 +1437,457 @@ void CUIMenu::TimerHandler (TKernelTimerHandle hTimer, void *pParam, void *pCont
 	pThis->EventHandler (MenuEventBack);
 }
 
+void CUIMenu::TimerHandlerNoBack (TKernelTimerHandle hTimer, void *pParam, void *pContext)
+{
+	CUIMenu *pThis = static_cast<CUIMenu *> (pContext);
+	assert (pThis);
+	
+	pThis->m_bSplashShow = false;
+	
+	pThis->EventHandler (MenuEventUpdate);
+}
+
 void CUIMenu::PerformanceMenu (CUIMenu *pUIMenu, TMenuEvent Event)
 {
-	
-	unsigned nValue = pUIMenu->m_pMiniDexed->GetMenuSelectedPerformanceID();
+	bool bPerformanceSelectToLoad = pUIMenu->m_pMiniDexed->GetPerformanceSelectToLoad();
+	unsigned nLastPerformance = pUIMenu->m_pMiniDexed->GetLastPerformance();
+	unsigned nValue = pUIMenu->m_nSelectedPerformanceID;
+	unsigned nStart = nValue;
+	if (pUIMenu->m_pMiniDexed->IsValidPerformance(nValue) != true)
+	{
+		// A bank change has left the selected performance out of sync
+		nValue = pUIMenu->m_pMiniDexed->GetActualPerformanceID();
+		pUIMenu->m_nSelectedPerformanceID = nValue;
+	}
+	std::string Value;
 		
+	if (Event == MenuEventUpdate)
+	{
+		pUIMenu->m_bPerformanceDeleteMode=false;
+	}
+	
+	if (pUIMenu->m_bSplashShow)
+	{
+		return;
+	}		
+	
+	if(!pUIMenu->m_bPerformanceDeleteMode)
+	{
+		switch (Event)
+		{
+		case MenuEventUpdate:
+			break;
+
+		case MenuEventStepDown:
+			do
+			{
+				if (nValue == 0)
+				{
+					// Wrap around
+					nValue = nLastPerformance;
+				}
+				else if (nValue > 0)
+				{
+					--nValue;
+				}
+			} while ((pUIMenu->m_pMiniDexed->IsValidPerformance(nValue) != true) && (nValue != nStart));
+			pUIMenu->m_nSelectedPerformanceID = nValue;
+			if (!bPerformanceSelectToLoad && pUIMenu->m_nCurrentParameter==0)
+			{
+				pUIMenu->m_pMiniDexed->SetNewPerformance(nValue);
+			}
+			break;
+
+		case MenuEventStepUp:
+			do
+			{
+				if (nValue == nLastPerformance)
+				{
+					// Wrap around
+					nValue = 0;
+				}
+				else if (nValue < nLastPerformance)
+				{
+					++nValue;
+				}
+			} while ((pUIMenu->m_pMiniDexed->IsValidPerformance(nValue) != true) && (nValue != nStart));
+			pUIMenu->m_nSelectedPerformanceID = nValue;
+			if (!bPerformanceSelectToLoad && pUIMenu->m_nCurrentParameter==0)
+			{
+				pUIMenu->m_pMiniDexed->SetNewPerformance(nValue);
+			}
+			break;
+
+		case MenuEventSelect:	
+			switch (pUIMenu->m_nCurrentParameter)
+			{
+			case 0:
+				if (bPerformanceSelectToLoad)
+				{
+				pUIMenu->m_pMiniDexed->SetNewPerformance(nValue);
+				}
+
+				break;
+			case 1:
+				if (pUIMenu->m_pMiniDexed->IsValidPerformance(pUIMenu->m_nSelectedPerformanceID))
+				{
+					pUIMenu->m_bPerformanceDeleteMode=true;
+					pUIMenu->m_bConfirmDeletePerformance=false;
+				}
+				break;
+			default:
+				break;
+			}
+			break;
+		default:
+			return;
+		}
+	}
+	else
+	{
+		switch (Event)
+		{
+		case MenuEventUpdate:
+			break;
+
+		case MenuEventStepDown:
+			pUIMenu->m_bConfirmDeletePerformance=false;
+			break;
+
+		case MenuEventStepUp:
+			pUIMenu->m_bConfirmDeletePerformance=true;
+			break;
+
+		case MenuEventSelect:	
+			pUIMenu->m_bPerformanceDeleteMode=false;
+			if (pUIMenu->m_bConfirmDeletePerformance)
+			{
+				pUIMenu->m_nSelectedPerformanceID = 0;
+				pUIMenu->m_bConfirmDeletePerformance=false;
+				pUIMenu->m_pUI->DisplayWrite ("", "Delete", pUIMenu->m_pMiniDexed->DeletePerformance(nValue) ? "Completed" : "Error", false, false);
+				pUIMenu->m_bSplashShow=true;
+				CTimer::Get ()->StartKernelTimer (MSEC2HZ (1500), TimerHandlerNoBack, 0, pUIMenu);
+				return;
+			}
+			else
+			{
+				break;
+			}
+			
+		default:
+			return;
+		}		
+	}
+		
+	if(!pUIMenu->m_bPerformanceDeleteMode)
+	{
+		Value = pUIMenu->m_pMiniDexed->GetPerformanceName(nValue);
+		unsigned nBankNum = pUIMenu->m_pMiniDexed->GetPerformanceBank();
+		
+		std::string nPSelected = "000";
+		nPSelected += std::to_string(nBankNum+1);  // Convert to user-facing bank number rather than index
+		nPSelected = nPSelected.substr(nPSelected.length()-3,3);
+		std::string nPPerf = "000";
+		nPPerf += std::to_string(nValue+1);  // Convert to user-facing performance number rather than index
+		nPPerf = nPPerf.substr(nPPerf.length()-3,3);
+
+		nPSelected += ":"+nPPerf;
+		if(nValue == pUIMenu->m_pMiniDexed->GetActualPerformanceID())
+		{
+			nPSelected += " [L]";
+		}
+					
+		pUIMenu->m_pUI->DisplayWrite (pUIMenu->m_pParentMenu[pUIMenu->m_nCurrentMenuItem].Name, nPSelected.c_str(),
+						  Value.c_str (), true, true);
+//						 (int) nValue > 0, (int) nValue < (int) pUIMenu->m_pMiniDexed->GetLastPerformance());
+	}
+	else
+	{
+		pUIMenu->m_pUI->DisplayWrite ("", "Delete?", pUIMenu->m_bConfirmDeletePerformance ? "Yes" : "No", false, false);
+	}
+}
+
+void CUIMenu::EditPerformanceBankNumber (CUIMenu *pUIMenu, TMenuEvent Event)
+{
+	bool bPerformanceSelectToLoad = pUIMenu->m_pMiniDexed->GetPerformanceSelectToLoad();
+	unsigned nLastPerformanceBank = pUIMenu->m_pMiniDexed->GetLastPerformanceBank();
+	unsigned nValue = pUIMenu->m_nSelectedPerformanceBankID;
+	unsigned nStart = nValue;
+	std::string Value;
+
 	switch (Event)
 	{
 	case MenuEventUpdate:
 		break;
 
 	case MenuEventStepDown:
-		if (nValue > 0)
+		do
 		{
-			--nValue;
+			if (nValue == 0)
+			{
+				// Wrap around
+				nValue = nLastPerformanceBank;
+			}
+			else if (nValue > 0)
+			{
+				--nValue;
+			}
+		} while ((pUIMenu->m_pMiniDexed->IsValidPerformanceBank(nValue) != true) && (nValue != nStart));
+		pUIMenu->m_nSelectedPerformanceBankID = nValue;
+		if (!bPerformanceSelectToLoad)
+		{
+			// Switch to the new bank and select the first performance voice
+			pUIMenu->m_pMiniDexed->SetParameter (CMiniDexed::ParameterPerformanceBank, nValue);
+			pUIMenu->m_pMiniDexed->SetFirstPerformance();
 		}
-		pUIMenu->m_pMiniDexed->SetMenuSelectedPerformanceID (nValue);
 		break;
 
 	case MenuEventStepUp:
-		if (++nValue > (unsigned) pUIMenu->m_pMiniDexed->GetLastPerformance()-1)
+		do
 		{
-			nValue = pUIMenu->m_pMiniDexed->GetLastPerformance()-1;
+			if (nValue == nLastPerformanceBank)
+			{
+				// Wrap around
+				nValue = 0;
+			}
+			else if (nValue < nLastPerformanceBank)
+			{
+				++nValue;
+			}
+		} while ((pUIMenu->m_pMiniDexed->IsValidPerformanceBank(nValue) != true) && (nValue != nStart));
+		pUIMenu->m_nSelectedPerformanceBankID = nValue;
+		if (!bPerformanceSelectToLoad)
+		{
+			pUIMenu->m_pMiniDexed->SetParameter (CMiniDexed::ParameterPerformanceBank, nValue);
+			pUIMenu->m_pMiniDexed->SetFirstPerformance();
 		}
-		pUIMenu->m_pMiniDexed->SetMenuSelectedPerformanceID (nValue);
 		break;
 
 	case MenuEventSelect:	
-		pUIMenu->m_pMiniDexed->SetNewPerformance(nValue);
+		if (bPerformanceSelectToLoad)
+		{
+			pUIMenu->m_pMiniDexed->SetParameter (CMiniDexed::ParameterPerformanceBank, nValue);
+			pUIMenu->m_pMiniDexed->SetFirstPerformance();
+		}
+		break;
+
+	default:
+		return;
+	}
+
+	Value = pUIMenu->m_pMiniDexed->GetPerformanceConfig ()->GetPerformanceBankName(nValue);
+	std::string nPSelected = "000";
+	nPSelected += std::to_string(nValue+1);  // Convert to user-facing number rather than index
+	nPSelected = nPSelected.substr(nPSelected.length()-3,3);
+
+	if(nValue == (unsigned)pUIMenu->m_pMiniDexed->GetParameter (CMiniDexed::ParameterPerformanceBank))
+	{
+		nPSelected += " [L]";
+	}
+
+	pUIMenu->m_pUI->DisplayWrite (pUIMenu->m_pParentMenu[pUIMenu->m_nCurrentMenuItem].Name, nPSelected.c_str(),
+							Value.c_str (),
+							nValue > 0,
+							nValue < pUIMenu->m_pMiniDexed->GetLastPerformanceBank()-1);
+}
+
+void CUIMenu::InputTxt (CUIMenu *pUIMenu, TMenuEvent Event)
+{
+	unsigned nTG=0;
+	string TG ("TG");
 	
+	std::string MsgOk;
+	std::string NoValidChars;
+	unsigned MaxChars;
+	std::string MenuTitleR;
+	std::string MenuTitleL;
+	std::string OkTitleL;
+	std::string OkTitleR;
+	
+	switch(pUIMenu->m_nCurrentParameter)
+	{
+		case 1: // save new performance
+			NoValidChars = {92, 47, 58, 42, 63, 34, 60,62, 124};
+			MaxChars=14;
+			MenuTitleL="Performance Name";
+			MenuTitleR="";
+			OkTitleL="New Performance"; // \E[?25l
+			OkTitleR="";
+		 break;
+		 
+		case 2: // Rename performance - NOT Implemented yet
+			NoValidChars = {92, 47, 58, 42, 63, 34, 60,62, 124};
+			MaxChars=14;
+			MenuTitleL="Performance Name";
+			MenuTitleR="";
+			OkTitleL="Rename Perf."; // \E[?25l
+			OkTitleR="";
+		break;
+		
+		case 3: // Voice name
+			nTG = pUIMenu->m_nMenuStackParameter[pUIMenu->m_nCurrentMenuDepth-2];
+			NoValidChars = {127};
+			MaxChars=10;
+			MenuTitleL="Name";
+			TG += to_string (nTG+1);
+			MenuTitleR=TG;
+			OkTitleL="";
+			OkTitleR="";
+		break;
+			
+		default:
+		return;
+	}
+	
+	bool bOK;
+	unsigned nPosition = pUIMenu->m_InputTextPosition;
+	unsigned nChar = pUIMenu->m_InputText[nPosition];
+
+	
+	switch (Event)
+	{
+	case MenuEventUpdate:
+		if(pUIMenu->m_nCurrentParameter == 1 || pUIMenu->m_nCurrentParameter == 2)
+		{
+			pUIMenu->m_InputText = pUIMenu->m_pMiniDexed->GetNewPerformanceDefaultName();
+			pUIMenu->m_InputText += "              ";
+			pUIMenu->m_InputText =  pUIMenu->m_InputText.substr(0,14);
+			pUIMenu->m_InputTextPosition=0;
+			nPosition=pUIMenu->m_InputTextPosition;
+			nChar = pUIMenu->m_InputText[nPosition];
+		}
+		else
+		{
+			
+			pUIMenu->m_InputText = pUIMenu->m_pMiniDexed->GetVoiceName(nTG);
+			pUIMenu->m_InputText += "          ";
+			pUIMenu->m_InputText =  pUIMenu->m_InputText.substr(0,10);
+			pUIMenu->m_InputTextPosition=0;
+			nPosition=pUIMenu->m_InputTextPosition;
+			nChar = pUIMenu->m_InputText[nPosition];
+		}
+		break;
+
+	case MenuEventStepDown:
+		if (nChar > 32)
+		{
+		do	{
+			--nChar;
+			}
+		while (NoValidChars.find(nChar) != std::string::npos);
+		}
+		pUIMenu->m_InputTextChar = nChar;
+		break;
+
+	case MenuEventStepUp:
+		if (nChar < 126)
+		{
+		do	{
+				++nChar;
+			}
+		while (NoValidChars.find(nChar) != std::string::npos);			
+		}
+		pUIMenu->m_InputTextChar = nChar;
+		break;	
+		
+		
+		
+	case MenuEventSelect:	
+		if(pUIMenu->m_nCurrentParameter == 1)
+		{	
+			pUIMenu->m_pMiniDexed->SetNewPerformanceName(pUIMenu->m_InputText);
+			bOK = pUIMenu->m_pMiniDexed->SavePerformanceNewFile ();
+			MsgOk=bOK ? "Completed" : "Error";
+			pUIMenu->m_pUI->DisplayWrite (OkTitleR.c_str(), OkTitleL.c_str(), MsgOk.c_str(), false, false);
+			CTimer::Get ()->StartKernelTimer (MSEC2HZ (1500), TimerHandler, 0, pUIMenu);
+			return;
+		}
+		else
+		{
+			break; // Voice Name Edit
+		}
+	
+	case MenuEventPressAndStepDown:
+		if (nPosition > 0)
+			{
+				--nPosition;
+			}
+		pUIMenu->m_InputTextPosition = nPosition;
+		nChar = pUIMenu->m_InputText[nPosition];
 		break;
 	
+	case MenuEventPressAndStepUp:
+		if (nPosition < MaxChars-1)
+		{
+			++nPosition;
+		}
+		pUIMenu->m_InputTextPosition = nPosition;
+		nChar = pUIMenu->m_InputText[nPosition];
+		break;
+
+	default:
+		return;
+	}
+	
+	
+	// \E[2;%dH	Cursor move to row %1 and column %2 (starting at 1)
+	// \E[?25h	Normal cursor visible
+	// \E[?25l	Cursor invisible
+	
+	std::string escCursor="\E[?25h\E[2;"; // this is to locate cursor
+	escCursor += to_string(nPosition + 2);
+	escCursor += "H";
+	
+
+	std::string Value = pUIMenu->m_InputText;
+	Value[nPosition]=nChar;
+	pUIMenu->m_InputText = Value;
+	
+	if(pUIMenu->m_nCurrentParameter == 3)
+		{
+			pUIMenu->m_pMiniDexed->SetVoiceName(pUIMenu->m_InputText, nTG);
+		}	
+		
+	Value = Value + " " + escCursor ;
+	pUIMenu->m_pUI->DisplayWrite (MenuTitleR.c_str(),MenuTitleL.c_str(), Value.c_str(), false, false);
+	
+	
+}
+
+void CUIMenu::EditTGParameterModulation (CUIMenu *pUIMenu, TMenuEvent Event) 
+{
+
+	unsigned nTG = pUIMenu->m_nMenuStackParameter[pUIMenu->m_nCurrentMenuDepth-3]; 
+	unsigned nController = pUIMenu->m_nMenuStackParameter[pUIMenu->m_nCurrentMenuDepth-1]; 
+	unsigned nParameter = pUIMenu->m_nCurrentParameter + nController;
+	
+	CMiniDexed::TTGParameter Param = (CMiniDexed::TTGParameter) nParameter;
+	const TParameter &rParam = s_TGParameter[Param];
+
+	int nValue = pUIMenu->m_pMiniDexed->GetTGParameter (Param, nTG);
+
+	switch (Event)
+	{
+	case MenuEventUpdate:
+		break;
+
+	case MenuEventStepDown:
+		nValue -= rParam.Increment;
+		if (nValue < rParam.Minimum)
+		{
+			nValue = rParam.Minimum;
+		}
+		pUIMenu->m_pMiniDexed->SetTGParameter (Param, nValue, nTG);
+		break;
+
+	case MenuEventStepUp:
+		nValue += rParam.Increment;
+		if (nValue > rParam.Maximum)
+		{
+			nValue = rParam.Maximum;
+		}
+		pUIMenu->m_pMiniDexed->SetTGParameter (Param, nValue, nTG);
+		break;
 
 	case MenuEventPressAndStepDown:
 	case MenuEventPressAndStepUp:
@@ -1128,39 +1897,17 @@ void CUIMenu::PerformanceMenu (CUIMenu *pUIMenu, TMenuEvent Event)
 	default:
 		return;
 	}
-	
-	string Value = pUIMenu->m_pMiniDexed->GetPerformanceName(nValue);
-	
 
-	std::string nPSelected = "";
-	if(nValue == pUIMenu->m_pMiniDexed->GetActualPerformanceID())
-	{
-		nPSelected="[Ld]";
-	}
-				
-	pUIMenu->m_pUI->DisplayWrite (pUIMenu->m_pParentMenu[pUIMenu->m_nCurrentMenuItem].Name, nPSelected.c_str(),
-				      Value.c_str (),
-				     (int) nValue > 0, (int) nValue < (int) pUIMenu->m_pMiniDexed->GetLastPerformance()-1);
-	
-}
+	string TG ("TG");
+	TG += to_string (nTG+1);
 
-void CUIMenu::SavePerformanceNewFile (CUIMenu *pUIMenu, TMenuEvent Event)
-{
-	if (Event != MenuEventUpdate)
-	{
-		return;
-	}
+	string Value = GetTGValueString (Param, pUIMenu->m_pMiniDexed->GetTGParameter (Param, nTG));
 
-	bool bOK = pUIMenu->m_pMiniDexed->SavePerformanceNewFile ();
-
-	const char *pMenuName =
-		pUIMenu->m_MenuStackParent[pUIMenu->m_nCurrentMenuDepth-1]
-			[pUIMenu->m_nMenuStackItem[pUIMenu->m_nCurrentMenuDepth-1]].Name;
-
-	pUIMenu->m_pUI->DisplayWrite (pMenuName,
+	pUIMenu->m_pUI->DisplayWrite (TG.c_str (),
 				      pUIMenu->m_pParentMenu[pUIMenu->m_nCurrentMenuItem].Name,
-				      bOK ? "Completed" : "Error",
-				      false, false);
-
-	CTimer::Get ()->StartKernelTimer (MSEC2HZ (1500), TimerHandler, 0, pUIMenu);
+				      Value.c_str (),
+				      nValue > rParam.Minimum, nValue < rParam.Maximum);
+				   
 }
+
+

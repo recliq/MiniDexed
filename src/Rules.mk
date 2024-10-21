@@ -22,7 +22,9 @@ LIBS += \
 	$(CIRCLEHOME)/addon/Properties/libproperties.a \
 	$(CIRCLEHOME)/addon/SDCard/libsdcard.a \
   	$(CIRCLEHOME)/lib/usb/libusb.a \
+	$(CIRCLEHOME)/lib/usb/gadget/libusbgadget.a \
  	$(CIRCLEHOME)/lib/input/libinput.a \
+	$(CIRCLEHOME)/lib/sound/libsound.a \
  	$(CIRCLEHOME)/addon/fatfs/libfatfs.a \
  	$(CIRCLEHOME)/lib/fs/libfs.a \
   	$(CIRCLEHOME)/lib/sched/libsched.a \

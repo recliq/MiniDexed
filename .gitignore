@@ -41,3 +41,11 @@ MiniDexed*
 sdcard
 *.zip
 *.img
+
+# Editor related files
+*.swp
+*.swo
+
+CMSIS_5/
+Synth_Dexed/
+circle-stdlib/

@@ -25,6 +25,7 @@
 
 #include <string>
 #include <circle/timer.h>
+#include "config.h"
 
 class CMiniDexed;
 class CUserInterface;
@@ -45,14 +46,18 @@ public:
 		MenuEventStepUp,
 		MenuEventPressAndStepDown,
 		MenuEventPressAndStepUp,
+		MenuEventPgmUp,
+		MenuEventPgmDown,
+		MenuEventTGUp,
+		MenuEventTGDown,
 		MenuEventUnknown
 	};
 
 public:
-	CUIMenu (CUserInterface *pUI, CMiniDexed *pMiniDexed);
+	CUIMenu (CUserInterface *pUI, CMiniDexed *pMiniDexed, CConfig *pConfig);
 
 	void EventHandler (TMenuEvent Event);
-
+	
 private:
 	typedef void TMenuHandler (CUIMenu *pUIMenu, TMenuEvent Event);
 
@@ -84,9 +89,10 @@ private:
 	static void EditOPParameter (CUIMenu *pUIMenu, TMenuEvent Event);
 	static void SavePerformance (CUIMenu *pUIMenu, TMenuEvent Event);
 	static void EditTGParameter2 (CUIMenu *pUIMenu, TMenuEvent Event);
-	
+	static void EditTGParameterModulation (CUIMenu *pUIMenu, TMenuEvent Event); 	
 	static void PerformanceMenu (CUIMenu *pUIMenu, TMenuEvent Event);
 	static void SavePerformanceNewFile (CUIMenu *pUIMenu, TMenuEvent Event);
+	static void EditPerformanceBankNumber (CUIMenu *pUIMenu, TMenuEvent Event);
 	
 	static std::string GetGlobalValueString (unsigned nParameter, int nValue);
 	static std::string GetTGValueString (unsigned nTGParameter, int nValue);
@@ -107,15 +113,25 @@ private:
 	static std::string ToOscillatorDetune (int nValue);
 	static std::string ToPortaMode (int nValue);  
 	static std::string ToPortaGlissando (int nValue);   
+	static std::string ToPolyMono (int nValue);
 
 	void TGShortcutHandler (TMenuEvent Event);
 	void OPShortcutHandler (TMenuEvent Event);
 
+	void PgmUpDownHandler (TMenuEvent Event);
+	void TGUpDownHandler (TMenuEvent Event);
+
 	static void TimerHandler (TKernelTimerHandle hTimer, void *pParam, void *pContext);
 
+	static void InputTxt (CUIMenu *pUIMenu, TMenuEvent Event);
+	static void TimerHandlerNoBack (TKernelTimerHandle hTimer, void *pParam, void *pContext);
+	 
 private:
 	CUserInterface *m_pUI;
 	CMiniDexed *m_pMiniDexed;
+	CConfig *m_pConfig;
+	
+	unsigned m_nToneGenerators;
 
 	const TMenuItem *m_pParentMenu;
 	const TMenuItem *m_pCurrentMenu;
@@ -140,13 +156,27 @@ private:
 	static const TMenuItem s_SaveMenu[];
 	static const TMenuItem s_EditPitchBendMenu[];
 	static const TMenuItem s_EditPortamentoMenu[];
-		
+	static const TMenuItem s_PerformanceMenu[];
+	
+	static const TMenuItem s_ModulationMenu[];
+	static const TMenuItem s_ModulationMenuParameters[];
+			
 	static const TParameter s_GlobalParameter[];
 	static const TParameter s_TGParameter[];
 	static const TParameter s_VoiceParameter[];
 	static const TParameter s_OPParameter[];
 
-	static const char s_NoteName[100][4];
+	static const char s_NoteName[100][5];
+
+	std::string m_InputText="1234567890ABCD";
+	unsigned m_InputTextPosition=0;
+	unsigned m_InputTextChar=32;
+	bool m_bPerformanceDeleteMode=false;
+	bool m_bConfirmDeletePerformance=false;
+	unsigned m_nSelectedPerformanceID =0;
+	unsigned m_nSelectedPerformanceBankID =0;
+	bool m_bSplashShow=false;
+
 };
 
 #endif

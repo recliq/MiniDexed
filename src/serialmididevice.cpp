@@ -28,11 +28,15 @@
 
 LOGMODULE("serialmididevice");
 
+// There are several UART options - see circle/include/serial.h
+// 0 corresponds to GP14/GP15 on all RPi versions.
+#define SERIAL_MIDI_DEVICE 0
+
 CSerialMIDIDevice::CSerialMIDIDevice (CMiniDexed *pSynthesizer, CInterruptSystem *pInterrupt,
-				      CConfig *pConfig)
-:	CMIDIDevice (pSynthesizer, pConfig),
+				      CConfig *pConfig, CUserInterface *pUI)
+:	CMIDIDevice (pSynthesizer, pConfig, pUI),
 	m_pConfig (pConfig),
-	m_Serial (pInterrupt, TRUE),
+	m_Serial (pInterrupt, TRUE, SERIAL_MIDI_DEVICE),
 	m_nSerialState (0),
 	m_nSysEx (0),
 	m_SendBuffer (&m_Serial)
@@ -49,7 +53,12 @@ CSerialMIDIDevice::~CSerialMIDIDevice (void)
 boolean CSerialMIDIDevice::Initialize (void)
 {
 	assert (m_pConfig);
-	return m_Serial.Initialize (m_pConfig->GetMIDIBaudRate ());
+	boolean res = m_Serial.Initialize (m_pConfig->GetMIDIBaudRate ());
+	unsigned ser_options = m_Serial.GetOptions();
+	// Ensure CR->CRLF translation is disabled for MIDI links
+	ser_options &= ~(SERIAL_OPTION_ONLCR);
+	m_Serial.SetOptions(ser_options);
+	return res;
 }
 
 void CSerialMIDIDevice::Process (void)
@@ -66,7 +75,7 @@ void CSerialMIDIDevice::Process (void)
 		return;
 	}
 
-        if (m_pConfig->GetMIDIDumpEnabled ())
+/*        if (m_pConfig->GetMIDIDumpEnabled ())
 	{
 		printf("Incoming MIDI data:");
 		for (uint16_t i = 0; i < nResult; i++)
@@ -76,7 +85,7 @@ void CSerialMIDIDevice::Process (void)
 			printf(" 0x%02x",Buffer[i]);
 		}
 		printf("\n");
-	}
+	}*/
 
 	// Process MIDI messages
 	// See: https://www.midi.org/specifications/item/table-1-summary-of-midi-message
@@ -93,7 +102,13 @@ void CSerialMIDIDevice::Process (void)
 			continue;
 		}
 
-		if(m_nSysEx > 0)
+		// System Real Time messages may appear anywhere in the byte stream, so handle them specially
+		if(uchData == 0xF8 || uchData == 0xFA || uchData == 0xFB || uchData == 0xFC || uchData == 0xFE || uchData == 0xFF)
+		{
+			MIDIMessageHandler (&uchData, 1);
+			continue;
+		}
+		else if(m_nSysEx > 0)
 		{
 			m_SerialMessage[m_nSysEx++]=uchData;
 			if ((uchData & 0x80) == 0x80 || m_nSysEx >= MAX_MIDI_MESSAGE)
@@ -130,7 +145,8 @@ void CSerialMIDIDevice::Process (void)
 				m_SerialMessage[m_nSerialState++] = uchData;
 	
 				if (   (m_SerialMessage[0] & 0xE0) == 0xC0
-				    || m_nSerialState == 3)		// message is complete
+				    || m_nSerialState == 3		// message is complete
+				    || (m_SerialMessage[0] & 0xF0) == 0xD0)   // channel aftertouch
 				{
 					MIDIMessageHandler (m_SerialMessage, m_nSerialState);
 	
